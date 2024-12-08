@@ -34,8 +34,11 @@ const RegisterPage = () => {
       console.log("Response received:", response); // Log the response
   
       if (response.status === 200 || response.status === 201) {
+        // On successful registration, save the token and navigate
+        const { token } = response.data; // Assuming the response contains the token
+        localStorage.setItem("userToken", token); // Save the token to localStorage
         toast.success("Registration successful!");
-        navigate("/dashboard");
+        navigate("/dashboard"); // Redirect to the dashboard
       } else {
         toast.error("Registration failed. Please try again.");
       }
@@ -57,8 +60,6 @@ const RegisterPage = () => {
       setIsSubmitting(false);
     }
   };
-  
-  
 
   const formik = useFormik({
     initialValues: {

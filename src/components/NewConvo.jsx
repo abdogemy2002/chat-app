@@ -1,12 +1,49 @@
-import React, { useState } from "react";
-import axios from "axios";  // Import Axios for making API requests
-import { toast } from "react-toastify";  // Import Toastify
-import "react-toastify/dist/ReactToastify.css";  // Import the Toastify CSS
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { HubConnectionBuilder } from "@microsoft/signalr"; // Import SignalR
 import styles from "../styles/components-style/NewConvo.module.css"; // Import the CSS Module
 
-const NewConvo = ({ togglePopup }) => {
+const NewConvo = ({ togglePopup, updateConversations, conversations }) => {
   const [username, setUsername] = useState(""); // State for username input
-  const [loading, setLoading] = useState(false); // State for loading state
+  const [loading, setLoading] = useState(false); // State for loading
+  const [connection, setConnection] = useState(null); // State to hold SignalR connection
+  const [isTokenReady, setIsTokenReady] = useState(false); // Track if token is available
+
+  // Check if the token exists in localStorage when the component mounts
+  useEffect(() => {
+    const token = localStorage.getItem("userToken"); // Fetch token from localStorage
+    if (token) {
+      setIsTokenReady(true); // If token exists, set token readiness to true
+    }
+  }, []);
+
+  // Initialize SignalR connection
+  useEffect(() => {
+    const token = localStorage.getItem("userToken"); // Fetch token for SignalR connection
+    if (token) {
+      const newConnection = new HubConnectionBuilder()
+        .withUrl("http://localhost:5002/chathub", {
+          accessTokenFactory: () => token, // Provide token for authorization
+        })
+        .withAutomaticReconnect()
+        .build();
+
+      setConnection(newConnection);
+
+      newConnection
+        .start()
+        .then(() => {
+          console.log("SignalR Connected!");
+          newConnection.on("ReceiveNewConversation", (conversation) => {
+           
+            updateConversations([...conversations, conversation]);
+          });
+        })
+        .catch((error) => console.error("SignalR Connection Error:", error));
+    }
+  }, [updateConversations, conversations]);
 
   // Handle username input change
   const handleInputChange = (e) => {
@@ -22,40 +59,59 @@ const NewConvo = ({ togglePopup }) => {
   // Handle form submission
   const handleStartConversation = async () => {
     if (!username) {
-      // Show error toast
       toast.error("Please enter a username or email.");
+      return;
+    }
+
+    if (!isTokenReady) {
+      toast.error("Token not available. Please login first.");
       return;
     }
 
     setLoading(true);
 
-    const isEmailInput = isEmail(username); // Check if input is email
+    const isEmailInput = isEmail(username);
+
+    const requestPayload = {
+      [isEmailInput ? "email" : "username"]: username, // Dynamically send email or username
+    };
+    const token = localStorage.getItem("userToken");
 
     try {
       const response = await axios.post(
-        "http://localhost:3000/users",
-        { username },
+        "http://localhost:5002/api/Conversations/start",
+        requestPayload,
         {
           headers: {
             "Content-Type": "application/json",
-            "X-Input-Type": isEmailInput ? "email" : "username", // Send the type as header
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
-      // Handle the response from the backend
-      if (response.data.success) {
+      console.log("Response from API:", response);
+
+      if (response.status === 200) {
+        const conversation = response.data;
         toast.success("Conversation started successfully!");
-        togglePopup(); // Close the popup after success
+
+        // Add conversation to the local state
+        updateConversations([...conversations, conversation]);
+
+        // Notify SignalR hub
+        if (connection) {
+          await connection.invoke("SendNewConversation", conversation);
+        }
+
+        togglePopup();
       } else {
         toast.error("Failed to start conversation. Please try again.");
       }
-      
     } catch (error) {
-      toast.error("An error occurred. Please try again.");
-      console.error("Error:", error);
+      console.error("Error:", error.response || error);
+      toast.error(error.response?.data?.message || "An error occurred. Please try again.");
     } finally {
-      setLoading(false); // Stop loading state
+      setLoading(false);
     }
   };
 
@@ -64,7 +120,6 @@ const NewConvo = ({ togglePopup }) => {
       <div className={styles.newConvoContent}>
         <div className={styles.newConvoHeader}>
           <h3 className={styles.headerTitle}>New Conversation</h3>
-          {/* Close button to hide the popup */}
           <button className={styles.closeBtn} onClick={togglePopup}>
             ×
           </button>
@@ -85,7 +140,7 @@ const NewConvo = ({ togglePopup }) => {
         <button
           className={styles.startConvoBtn}
           onClick={handleStartConversation}
-          disabled={loading} // Disable button while loading
+          disabled={loading || !isTokenReady} // Disable button while loading or if token is not ready
         >
           {loading ? "Starting..." : "Start Conversation"}
         </button>

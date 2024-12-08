@@ -7,8 +7,10 @@ import "../styles/pages-style/DashboardPage.css";
 import NewConvo from "../components/NewConvo"; // Import the NewConvo component
 import { HubConnectionBuilder } from "@microsoft/signalr"; // Import SignalR
 import { BsSend } from "react-icons/bs"; // Import the BsSend icon
+import { useAuth } from "../context/AuthContext"; // Import AuthContext
 
 const DashboardPage = () => {
+  const { user } = useAuth(); // Access the user from AuthContext
   const [conversations, setConversations] = useState([]); // State for storing conversations
   const [showNewConvo, setShowNewConvo] = useState(false); // State for toggling new conversation popup
   const [message, setMessage] = useState(""); // State for message input
@@ -18,53 +20,72 @@ const DashboardPage = () => {
   const messageInputRef = useRef(null); // Reference to the message input field
   const sendButtonRef = useRef(null); // Reference to the send button
 
+  // Get userId from AuthContext
+  const userId = user ? user.id : null;
+
   // Initialize the SignalR connection
   const connection = useRef(
-    new HubConnectionBuilder().withUrl("http://localhost:3000/chatHub").build() // Adjust the SignalR URL here
+    new HubConnectionBuilder()
+      .withUrl("http://localhost:5002/chathub", {
+        accessTokenFactory: () => localStorage.getItem("userToken"), // Pass token for SignalR
+      })
+      .withAutomaticReconnect()
+      .build()
   ).current;
 
   // Function to fetch the user's conversations
   const getConversationsMy = async () => {
     try {
-      // Retrieve the token from localStorage
-      const token = localStorage.getItem("userToken"); // Make sure the token is stored under the key 'userToken'
+      const token = localStorage.getItem("userToken");
 
       if (!token) {
         toast.error("You are not logged in.");
         return;
       }
 
-      const response = await axios.get("http://localhost:5002/api/Conversations/my", {
-        headers: {
-          Authorization: `Bearer ${token}`, // Add the token to the Authorization header
-        },
-      });
+      const response = await axios.get(
+        "http://localhost:5002/api/Conversations/my",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (Array.isArray(response.data)) {
         setConversations(response.data); // Update state with fetched conversations
       } else {
-        setConversations([]); // Set to empty array if no conversations
+        setConversations([]);
       }
     } catch (error) {
       console.error("Error fetching conversations:", error);
       toast.error("Failed to load conversations.");
-      setConversations([]); // Handle error
+      setConversations([]);
     }
   };
 
   // Set up the SignalR connection and message listener
   useEffect(() => {
-    // Disable the send button initially until the connection is established
-    sendButtonRef.current.disabled = true;
+    sendButtonRef.current.disabled = true; // Disable send button initially
 
     connection.on("ReceiveMessage", (user, message) => {
-      setMessagesList((prevMessages) => [...prevMessages, { user, message }]);
+      setMessagesList((prevMessages) => [...prevMessages, { ...message }]);
+    });
+
+    connection.on("ReceiveNewConversation", (conversation) => {
+      setConversations((prevConversations) => [
+        conversation,
+        ...prevConversations,
+      ]);
+      toast.info(
+        `New conversation started with ${conversation.receiverUsername}`
+      );
     });
 
     connection
       .start()
       .then(() => {
-        setIsConnected(true); // Set connection status to true
+        setIsConnected(true);
         sendButtonRef.current.disabled = false; // Enable send button
       })
       .catch((err) =>
@@ -76,23 +97,48 @@ const DashboardPage = () => {
     return () => {
       connection.stop();
     };
-  }, []); // Empty dependency array to run only once when the component mounts
+  }, []); // Run only once when the component mounts
 
-  // Handle conversation selection
-  const selectConversation = (conversation) => {
-    setSelectedConversation(conversation); // Set selected conversation
-    setMessagesList([]); // Clear previous messages
-    // Here you could fetch messages for the selected conversation
+  // Handle conversation selection and fetch messages for the selected conversation
+  const selectConversation = async (conversation) => {
+    try {
+      setSelectedConversation(conversation); // Set the selected conversation
+      setMessagesList([]); // Clear previous messages for a clean state
+
+      const token = localStorage.getItem("userToken");
+
+      if (!token) {
+        toast.error("You are not logged in.");
+        return;
+      }
+
+      const response = await axios.get(
+        `http://localhost:5002/api/Messages/${conversation.conversationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (Array.isArray(response.data)) {
+        setMessagesList(response.data); // Update messages list with fetched data
+      } else {
+        toast.warning("No messages found for this conversation.");
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      toast.error("Failed to load messages for the selected conversation.");
+    }
   };
 
   // Function to handle sending messages
   const sendMessage = (event) => {
     event.preventDefault();
 
-    if (message.trim() && isConnected) {
-      const user = "User"; // Replace with actual username if needed
+    if (message.trim() && isConnected && selectedConversation) {
       connection
-        .invoke("SendMessage", user, message)
+        .invoke("SendMessage", selectedConversation?.conversationId, message)
         .then(() => {
           console.log("Message sent successfully");
           setMessage(""); // Clear the input field
@@ -102,7 +148,9 @@ const DashboardPage = () => {
           toast.error("Failed to send message.");
         });
     } else {
-      toast.error("You are not connected to the chat.");
+      toast.error(
+        "You are not connected to the chat or no conversation selected."
+      );
     }
   };
 
@@ -134,11 +182,16 @@ const DashboardPage = () => {
               conversations.map((conversation, index) => (
                 <div
                   key={index}
-                  className="conversationItem"
-                  onClick={() => selectConversation(conversation)} // Set the selected conversation
+                  className={`conversationItem ${
+                    selectedConversation?.conversationId ===
+                    conversation.conversationId
+                      ? "activeConversation"
+                      : ""
+                  }`}
+                  onClick={() => selectConversation(conversation)}
                 >
                   <i className="fa-regular fa-message"></i>
-                  <p>{conversation.receiverUsername}</p> {/* Display receiver's username */}
+                  <p>{conversation.receiverUsername}</p>
                 </div>
               ))
             ) : (
@@ -160,7 +213,6 @@ const DashboardPage = () => {
 
           {/* Main content */}
           <div className="chatContent">
-            {/* Display the conversation name at the top */}
             <div className="chatHeader">
               <h2>
                 {selectedConversation
@@ -168,21 +220,23 @@ const DashboardPage = () => {
                   : "Select a conversation or start a new one"}
               </h2>
             </div>
-            {/* Display messages */}
-            <ul id="messagesList">
-              {messagesList.map((msg, index) => (
-                <li
-                  key={index}
-                  className={`message ${
-                    msg.user === "User" ? "userMessage" : "senderMessage"
-                  }`}
-                >
-                  <strong>{msg.user}:</strong> {msg.message}
-                </li>
-              ))}
+            <ul id="messagesList" className="messagesList">
+              {messagesList
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                .map((msg, index) => (
+                  <li
+                    key={index}
+                    className={`message ${
+                      msg.senderId === userId ? "userMessage" : "senderMessage"
+                    }`}
+                  >
+                    <span className="messageSender">
+                      {msg.senderId === userId ? "You" : msg.senderUsername}
+                    </span>
+                    <span className="messageContent">{msg.content || "No content"}</span>
+                  </li>
+                ))}
             </ul>
-
-            {/* Message input and Send button */}
             <div className="messageInput">
               <input
                 type="text"
@@ -205,8 +259,13 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {/* New Conversation Popup */}
-      {showNewConvo && <NewConvo togglePopup={togglePopup} />}
+      {showNewConvo && (
+        <NewConvo
+          togglePopup={togglePopup}
+          updateConversations={setConversations}
+          conversations={conversations}
+        />
+      )}
 
       <ToastContainer />
     </>

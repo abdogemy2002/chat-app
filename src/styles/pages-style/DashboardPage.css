@@ -2,52 +2,55 @@
 .chatHome {
   display: flex;
   height: 100vh;
-  flex-direction: column; /* Ensure the layout stretches vertically */
-  overflow: hidden; /* Prevent overflow that may create extra scroll */
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* Left Sidebar */
 .chatHome .container {
   display: grid;
-  grid-template-columns: 1fr 6fr; /* Sidebar + Main Content */
-  grid-template-rows: 1fr; /* Allow content to stretch across the full height */
+  grid-template-columns: 1fr 5fr; /* Adjust column ratio */
+  grid-template-rows: 1fr;
   width: 100%;
-  height: 96vh; /* Ensure full screen height */
+  height: 96vh;
 }
 
 /* Conversations sidebar */
 .chatHome .container .conversations {
   display: flex;
   flex-direction: column;
-  background-color: var(--sidebar-background);
-  padding: 1rem;
-  border-right: 1px solid var(--form-border);
-  color: white;
+  background-color: var(--sidebar-background, #252525);
+  padding: 1.2rem;
+  border-right: 1px solid var(--form-border, #444);
+  color: #fff;
   height: 100%;
-  justify-content: flex-start; /* Align items at the top */
 }
 
 /* New conversation button */
 .chatHome .container .conversations button {
-  background-color: var(--message-green);
-  color: var(--text-field);
+  background-color: var(--message-green, #28a745);
+  color: #fff;
   border: none;
-  padding: 0.8rem 1rem;
+  padding: 0.9rem 1.2rem;
   border-radius: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
   margin-bottom: 1rem;
   cursor: pointer;
-  text-align: center;
-  font-weight: 5;
+  font-weight: bold;
   font-size: 1rem;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-/* Sidebar items (Profile and Logout) */
+.chatHome .container .conversations button:hover {
+  background-color: var(--hover-green, #218838);
+  transform: translateY(-2px);
+}
+
+/* Sidebar user actions */
 .chatHome .container .conversations .userActions {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .chatHome .container .conversations .Profile,
@@ -55,264 +58,157 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0.2rem 1rem;
-  margin-top: 2rem;
+  padding: 0.4rem 1.2rem;
   cursor: pointer;
   border-radius: 8px;
-  border-top: #fff;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-/* Hover effect for Profile and Logout buttons */
 .chatHome .container .conversations .Profile:hover,
 .chatHome .container .conversations .Logout:hover {
-  background-color: var(--profile-logout-hover);
+  background-color: var(--hover-background, #333);
+  transform: translateX(4px);
 }
 
-/* Main content area (conversation window) */
-/* Chat content area (main window) */
+/* Main content area */
 .chatHome .container .chatContent {
-  padding: 0; /* Remove internal padding to adjust for the header */
   display: flex;
   flex-direction: column;
-  justify-content: flex-end; /* Align messages at the bottom */
-  background-color: var(--chat-background);
-  color: var(--text-field);
-  height: 100%; /* Full height for the content */
-  flex-grow: 1; 
-  overflow-y: auto; 
+  background-color: var(--chat-background, #121212);
+  color: var(--text-field, #fff);
+  height: 100%;
+  overflow-y: auto;
 }
 
-/* Chat header at the top */
+/* Chat header */
 .chatHome .container .chatContent .chatHeader {
-  background-color: var(--hover-background); /* Subtle background for the header */
-  color: var(--text-field); /* Use appropriate text color */
-  padding: 15px; /* Add padding for spacing */
-  text-align: center; /* Center-align the title */
-  font-size: 1.5rem; /* Slightly larger font for prominence */
-  font-weight: bold; /* Make the text bold */
-  border-bottom: 1px solid var(--form-border); /* Separate header from messages */
-  color: rgb(185, 185, 185);
-  
+  position: sticky;
+  top: 0; /* Sticks to the top of the chat content */
+  background-color: var(--header-background, #1c1c1c);
+  color: rgb(200, 200, 200);
+  padding: 1rem;
+  font-size: 1.4rem;
+  font-weight: bold;
+  border-bottom: 1px solid var(--form-border, #444);
+  text-align: center;
+  z-index: 10; /* Ensures it stays above the scrolling content */
 }
 
 /* Chat messages list */
-.chatHome .container .chatContent .chatMessages {
-  flex-grow: 1; /* Allow the messages to fill available space */
-  padding: 1rem; /* Add padding for better spacing */
+.messagesList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100vh;
   overflow-y: auto;
-  margin: 0; /* Remove margin */
-  list-style: none; /* Remove list bullets */
-  
+  padding: 1rem; /* Add padding for better spacing */
 }
 
-/* Chat message styling */
-.chatHome .container .chatContent .message {
-  background-color: #fff;
-  padding: 10px;
-  margin-bottom: 15px;
-  border-radius: 8px;
-  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
-  max-width: 70%; /* Limit width for better readability */
-  word-wrap: break-word;
-  
+/* Common message styles */
+.message {
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  max-width: 70%;
+  font-size: 1rem;
+  word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem; /* Add spacing between messages */
 }
 
-/* User message (right-aligned) */
-.chatHome .container .chatContent .message.userMessage {
-  background-color: #d3f8e2; /* Light green for user messages */
-  align-self: flex-end; /* Align message to the right */
-  text-align: right; /* Align text inside the message */
-  border-bottom-right-radius: 0; /* Custom bottom corner */
+/* User's message style (current logged-in user) */
+.userMessage {
+  background-color: #007bff; /* Blue background for the user */
+  color: white;
+  align-self: flex-end; /* Align user messages to the right */
+  border-top-right-radius: 0; /* Remove top-right radius */
+  margin-left: auto; /* Align right */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
 }
 
-/* Sender message (left-aligned) */
-.chatHome .container .chatContent .message.senderMessage {
-  background-color: #e0e0e0; /* Light gray for sender messages */
-  align-self: flex-start; /* Align message to the left */
-  text-align: left; /* Align text inside the message */
-  border-bottom-left-radius: 0; /* Custom bottom corner */
+/* Sender's message style (other user) */
+.senderMessage {
+  background-color: #000000; /* Black background for the sender */
+  color: rgb(255, 255, 255);
+  align-self: flex-start; /* Align sender messages to the left */
+  border-top-left-radius: 0; /* Remove top-left radius */
+  margin-right: auto; /* Align left */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Add subtle shadow */
+}
+
+/* Message sender and content styling */
+.messageSender {
+  font-size: 0.9rem;
+  font-weight: bold;
+  margin-bottom: 0.3rem;
+  opacity: 0.8;
+}
+.messageContent {
+  font-size: 1rem;
 }
 
 /* Message input area */
 .chatHome .container .chatContent .messageInput {
+  position: relative;
+  bottom: 0; /* Sticks to the bottom of the chat content */
   display: flex;
   align-items: center;
+  gap: 10px;
+  padding: 1rem;
+  border-top: 1px solid var(--form-border, #444);
+  background-color: var(--input-background, #1e1e1e);
+  width: 81.7%;
+  z-index: 10; /* Ensures it stays above the scrolling content */
   justify-content: center;
-  margin-top: auto; /* Ensure it stays at the bottom */
-  width: 100%;
-  padding: 10px;
-  border-top: 1px solid var(--form-border); /* Separator line */
-  background-color: var(--chat-background); /* Match background */
 }
 
-/* Message input field */
-.chatHome .container .chatContent .messageInput input[type="text"] {
+.messageInput input {
   flex-grow: 1;
-  padding: 10px;
-  border: 1px solid var(--form-border);
-  border-radius: 10px;
-  background-color: var(--text-field);
-  color: #fff;
+  padding: 0.8rem 1rem;
+  border-radius: 20px;
+  border: 1px solid var(--form-border, #444);
+  background-color: var(--text-field, #fff);
+  color: #000000;
 }
 
-/* Send button */
-.chatHome .container .chatContent .messageInput button {
-  background-color: var(--message-green);
-  color: var(--text-field);
+.messageInput button {
+  background-color: #a8f0c0;
+  color: rgb(0, 0, 0);
   border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
-  margin-left: 10px;
+  border-radius: 20px;
+  padding: 0.8rem 1rem;
   cursor: pointer;
-  transition: background-color 0.3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: transform 0.2s ease, background-color 0.3s ease;
 }
 
-/* Send button hover effect */
-.chatHome .container .chatContent .messageInput button:hover {
-  background-color: var(--message-purple);
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-/* Ensure no border color change on active state */
-.chatHome .container .chatContent .messageInput button:active {
-  border-color: var(--form-border);
+::-webkit-scrollbar-thumb {
+  background-color: #252525;
+  border-radius: 20px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--chat-background, #121212);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .chatHome .container {
-    grid-template-columns: 1fr 2fr; /* Adjust columns for smaller screens */
+    grid-template-columns: 1fr 3fr;
   }
 }
 
 @media (max-width: 480px) {
   .chatHome .container {
-    grid-template-columns: 1fr; /* Stack the columns on small screens */
-    grid-template-rows: auto 1fr; /* Allow for the sidebar and content to stack */
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
   }
+
   .chatHome .container .conversations {
-    margin-bottom: 2rem;
+    padding: 0.8rem;
   }
-  .chatHome .container .chatContent {
-    padding: 1rem;
-  }
-}
-
-/* Messages list container */
-#messagesList {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  max-height: 600px; /* Adjust to suit your design */
-  overflow-y: auto; /* Scroll when messages overflow */
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* Space between messages */
-  align-items: flex-start; /* Default alignment for sender's messages */
-}
-
-/* Message styles */
-.message {
-  padding: 10px 15px;
-  border-radius: 20px;
-  max-width: 70%;
-  font-size: 16px;
-  line-height: 1.5;
-  word-wrap: break-word;
-  word-break: break-word;
-  margin-bottom: 5px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-}
-
-/* Styles for the current user's message (userMessage) */
-.userMessage {
-  background-color: #007bff; /* Blue for user's messages */
-  color: white;
-  align-self: flex-end; /* Align to the right */
-  border-top-right-radius: 0; /* More rounded at the top right */
-  border-bottom-left-radius: 20px; /* Rounded left side */
-}
-
-/* Styles for the other user's message (senderMessage) */
-.senderMessage {
-  background-color: #f1f1f1; /* Light grey for the sender's messages */
-  color: black;
-  align-self: flex-start; /* Align to the left */
-  border-top-left-radius: 0; /* More rounded at the top left */
-  border-bottom-right-radius: 20px; /* Rounded right side */
-}
-
-/* Chat input styles */
-.messageInput {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 20px;
-}
-
-.messageInput input {
-  flex-grow: 1;
-  padding: 10px;
-  border-radius: 25px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-}
-
-.messageInput button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  padding: 10px;
-  cursor: pointer;
-}
-
-.messageInput button:hover {
-  background-color: #0056b3;
-}
-/* Custom scrollbar styles */
-::-webkit-scrollbar {
-  width: 8px; /* Set the width of the scrollbar */
-  height: 8px; /* Set the height of the scrollbar (for horizontal scroll) */
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: #007bff; /* Blue color to match user message */
-  border-radius: 20px; /* Rounded corners for the scrollbar thumb */
-  border: 2px solid #000000; /* Slight border to create contrast */
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: #0056b3; /* Darker blue when hovering over the scrollbar thumb */
-}
-
-::-webkit-scrollbar-track {
-  background-color: #000000; /* Light gray for the track */
-  border-radius: 10px; /* Rounded corners for the scrollbar track */
-}
-
-::-webkit-scrollbar-track:hover {
-  background-color: #000000; /* Slightly darker gray for hover effect */
-}
-
-/* Apply custom scrollbar to specific elements (e.g., message list) */
-#messagesList {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  max-height: 600px; /* Adjust to suit your design */
-  overflow-y: auto; /* Scroll when messages overflow */
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* Space between messages */
-  align-items: flex-start; /* Default alignment for sender's messages */
-  
-  /* Custom scrollbar applied here */
-  scrollbar-width: thin;
-  scrollbar-color: var(--form-border) var(--chat-background); /* Set scrollbar thumb and track color for Firefox */
 }
