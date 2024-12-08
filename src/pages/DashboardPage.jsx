@@ -26,29 +26,29 @@ const DashboardPage = () => {
   // Function to fetch the user's conversations
   const getConversationsMy = async () => {
     try {
-      const response = await axios.get("http://localhost:3000/conversations"); // Fetch conversations from JSON Server
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("userToken"); // Make sure the token is stored under the key 'userToken'
+
+      if (!token) {
+        toast.error("You are not logged in.");
+        return;
+      }
+
+      const response = await axios.get("http://localhost:5002/api/Conversations/my", {
+        headers: {
+          Authorization: `Bearer ${token}`, // Add the token to the Authorization header
+        },
+      });
+
       if (Array.isArray(response.data)) {
         setConversations(response.data); // Update state with fetched conversations
       } else {
         setConversations([]); // Set to empty array if no conversations
       }
     } catch (error) {
+      console.error("Error fetching conversations:", error);
       toast.error("Failed to load conversations.");
       setConversations([]); // Handle error
-    }
-  };
-
-  // Function to fetch messages for a specific conversation
-  const getMessagesForConversation = async (conversation) => {
-    try {
-      const response = await axios.get(
-        `http://localhost:3000/messages?conversationId=${conversation.id}`
-      );
-      setMessagesList(response.data); // Update messages list with fetched messages
-      setSelectedConversation(conversation); // Set the selected conversation
-    } catch (error) {
-      toast.error("Failed to load messages.");
-      setMessagesList([]); // Handle errorش
     }
   };
 
@@ -77,6 +77,13 @@ const DashboardPage = () => {
       connection.stop();
     };
   }, []); // Empty dependency array to run only once when the component mounts
+
+  // Handle conversation selection
+  const selectConversation = (conversation) => {
+    setSelectedConversation(conversation); // Set selected conversation
+    setMessagesList([]); // Clear previous messages
+    // Here you could fetch messages for the selected conversation
+  };
 
   // Function to handle sending messages
   const sendMessage = (event) => {
@@ -123,15 +130,15 @@ const DashboardPage = () => {
               </div>
             </button>
 
-            {Array.isArray(conversations) && conversations.length > 0 ? (
+            {conversations.length > 0 ? (
               conversations.map((conversation, index) => (
                 <div
                   key={index}
                   className="conversationItem"
-                  onClick={() => getMessagesForConversation(conversation)} // Fetch messages for the selected conversation
+                  onClick={() => selectConversation(conversation)} // Set the selected conversation
                 >
                   <i className="fa-regular fa-message"></i>
-                  <p>{conversation.name}</p>
+                  <p>{conversation.receiverUsername}</p> {/* Display receiver's username */}
                 </div>
               ))
             ) : (
@@ -157,7 +164,7 @@ const DashboardPage = () => {
             <div className="chatHeader">
               <h2>
                 {selectedConversation
-                  ? selectedConversation.name
+                  ? selectedConversation.receiverUsername
                   : "Select a conversation or start a new one"}
               </h2>
             </div>
@@ -189,10 +196,9 @@ const DashboardPage = () => {
                 id="sendButton"
                 ref={sendButtonRef}
                 onClick={sendMessage}
-                aria-label="Send Message" // Add an aria-label for accessibility
+                aria-label="Send Message"
               >
-                <BsSend size={18} />{" "}
-                {/* Use the BsSend icon as the button content */}
+                <BsSend size={18} />
               </button>
             </div>
           </div>

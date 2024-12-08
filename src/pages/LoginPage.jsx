@@ -6,26 +6,35 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { GoEye, GoEyeClosed } from "react-icons/go"; // Import visibility icons
 import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useAuth } from "../context/AuthContext"; // Import the useAuth hook
 import styles from "../styles/pages-style/LoginPage.module.css"; // Import the CSS Module
 
 const LoginPage = () => {
   const [passwordVisible, setPasswordVisible] = useState(false); // State for password visibility
   const navigate = useNavigate(); // Initialize navigate hook
-
+  const { login } = useAuth(); // Get login function from context
   const handleLogin = async (values) => {
     try {
-      // Fetch users from the endpoint
-      const response = await axios.get("http://localhost:3000/users?email=" + values.email);
-
-      // Check if user exists
-      const user = response.data[0]; // Assuming email is unique and only one user is returned
-      if (user && user.password === values.password) {
+      // Send login request to backend
+      const response = await axios.post("http://localhost:5002/api/Auth/login", {
+        email: values.email,
+        password: values.password,
+      });
+  
+      // Print the response in the console
+      console.log("Login response:", response);
+  
+      // Handle successful login response
+      if (response.status === 200) {
         toast.success("Login successful!");
-        console.log("Login successful:", user);
-        
-        // Store user info if needed (you can set it in a global context or local storage)
-        localStorage.setItem('user', JSON.stringify(user)); // Example of storing user info
-        
+        console.log("Login successful:", response.data); // This will print the user data
+  
+        // Store user info and token in the Auth context and localStorage
+        login(response.data); // Store the user in the context
+  
+        // Save the token to localStorage
+        localStorage.setItem("userToken", response.data.token); // Assuming the token is in response.data.token
+  
         // Redirect to the dashboard page after successful login
         navigate("/dashboard"); // Redirect to the dashboard
       } else {
@@ -38,6 +47,8 @@ const LoginPage = () => {
       );
     }
   };
+  
+  
 
   const formik = useFormik({
     initialValues: {

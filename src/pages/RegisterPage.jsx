@@ -12,63 +12,27 @@ const RegisterPage = () => {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isServerAvailable, setIsServerAvailable] = useState(true);
 
   const navigate = useNavigate();
-
-  const checkServerAvailability = async () => {
-    try {
-      await axios.get("http://localhost:3000/users");
-      return true;
-    } catch (error) {
-      console.error("Error checking server availability:", error.message);
-      setIsServerAvailable(false);
-      return false;
-    }
-  };
-  const checkAvailability = async (field, value) => {
-    try {
-      const response = await axios.get(`http://localhost:3000/users?${field}=${value}`);
-      console.log(`Response for ${field} query:`, response.data); // Debugging line to check response data
-      return response.data.length > 0; // This will return true if a user with that field exists
-    } catch (error) {
-      console.error(`Error checking ${field} availability:`, error.message);
-      toast.error("Error validating user data. Please try again.");
-      return false;
-    }
-  };
-  
-
   const handleRegister = async (values) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
   
-    // Check if the server is available
-    const serverAvailable = await checkServerAvailability();
-    if (!serverAvailable) {
-      toast.error("Server is unavailable. Please try again later.");
-      setIsSubmitting(false);
-      return;
-    }
+    // Prepare the payload with the required key names
+    const payload = {
+      email: values.email,
+      userName: values.username,  
+      password: values.password,
+      firstName: values.firstName,
+      lastName: values.lastName,
+    };
   
-    // Check if the username is already taken
-    const isUsernameTaken = await checkAvailability("username", values.username);
-    if (isUsernameTaken) {
-      toast.error("Username is already taken.");
-      setIsSubmitting(false);
-      return;
-    }
-  
-    // Check if the email is already registered
-    const isEmailTaken = await checkAvailability("email", values.email);
-    if (isEmailTaken) {
-      toast.error("Email is already registered.");
-      setIsSubmitting(false);
-      return;
-    }
+    console.log("Sending request with payload:", payload); // Log the request payload
   
     try {
-      const response = await axios.post("http://localhost:3000/users/", values);
+      const response = await axios.post("http://localhost:5002/api/Auth/register", payload);
+      console.log("Response received:", response); // Log the response
+  
       if (response.status === 200 || response.status === 201) {
         toast.success("Registration successful!");
         navigate("/dashboard");
@@ -77,13 +41,23 @@ const RegisterPage = () => {
       }
     } catch (error) {
       console.error("Registration error:", error.response?.data || error.message);
-      toast.error(
-        error.response?.data?.message || "An error occurred. Please try again."
-      );
+      console.log("Error Response:", error.response); // Log the error response
+  
+      if (error.response?.status === 409) {
+        // Conflict error (username or email already registered)
+        const errorMessage = error.response?.data?.message || "Username or email already registered.";
+        toast.error(errorMessage);
+      } else {
+        // Generic error
+        toast.error(
+          error.response?.data?.message || "An error occurred. Please try again."
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+  
   
 
   const formik = useFormik({
