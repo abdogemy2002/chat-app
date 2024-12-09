@@ -35,7 +35,7 @@ const DashboardPage = () => {
     if (!token) return;
 
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl("http://localhost:5002/chathub", {
+      .withUrl("https://localhost:7052/chathub", {
         accessTokenFactory: () => token,
       })
       .withAutomaticReconnect()
@@ -87,7 +87,7 @@ const DashboardPage = () => {
         return;
       }
 
-      const response = await axios.get("http://localhost:5002/api/Conversations/my", {
+      const response = await axios.get("https://localhost:7052/api/Conversations/my", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -121,7 +121,7 @@ const DashboardPage = () => {
       }
 
       const response = await axios.get(
-        `http://localhost:5002/api/Messages/${conversation.conversationId}`,
+        `https://localhost:7052/api/Messages/${conversation.conversationId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -156,7 +156,7 @@ const DashboardPage = () => {
 
       try {
         await axios.post(
-          `http://localhost:5002/api/messages/send`,
+          `https://localhost:7052/api/messages/send`,
           {
             conversationId: selectedConversation.conversationId,
             content: message,
@@ -211,7 +211,7 @@ const DashboardPage = () => {
                   onClick={() => selectConversation(conversation)}
                 >
                   <i className="fa-regular fa-message"></i>
-                  <p>{conversation.receiverUsername}</p>
+                  <p>{userId === conversation.user1Id ? conversation.user2UserName : conversation.user1UserName}</p>
                 </div>
               ))
             ) : (
