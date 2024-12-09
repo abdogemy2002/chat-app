@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import * as signalR from "@microsoft/signalr";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { CiCirclePlus } from "react-icons/ci";
 import "../styles/pages-style/DashboardPage.css";
 import NewConvo from "../components/NewConvo";
-import { HubConnectionBuilder } from "@microsoft/signalr";
 import { BsSend } from "react-icons/bs";
 
 const DashboardPage = () => {
@@ -13,7 +13,6 @@ const DashboardPage = () => {
   const [showNewConvo, setShowNewConvo] = useState(false);
   const [message, setMessage] = useState("");
   const [messagesList, setMessagesList] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const messageInputRef = useRef(null);
   const sendButtonRef = useRef(null);
@@ -31,15 +30,56 @@ const DashboardPage = () => {
     }
   }
 
-  const connection = useRef(
-    new HubConnectionBuilder()
+  // Setup SignalR only when token is available
+  useEffect(() => {
+    if (!token) return;
+
+    const newConnection = new signalR.HubConnectionBuilder()
       .withUrl("http://localhost:5002/chathub", {
-        accessTokenFactory: () => localStorage.getItem("userToken"),
+        accessTokenFactory: () => token,
       })
       .withAutomaticReconnect()
-      .build()
-  ).current;
+      .build();
 
+    newConnection
+      .start()
+      .then(() => {
+        console.log("Connected to SignalR hub");
+        newConnection.on("ReceiveMessage", (msg) => {
+          if (
+            selectedConversation &&
+            selectedConversation.conversationId === msg.conversationId
+          ) {
+            setMessagesList((prev) => [
+              ...prev,
+              {
+                conversationId: msg.conversationId,
+                senderId: msg.senderId,
+                content: msg.content,
+                timestamp: msg.timestamp,
+              },
+            ]);
+          } else {
+            // If the message isn't for the currently selected conversation
+            console.log("New message for another conversation:", msg);
+            console.log(selectedConversation);
+          }
+        });
+
+        newConnection.on("ReceiveNewConversation", (conversation) => {
+          setConversations((prev) => [...prev, conversation]);
+          toast.info("A new conversation has been started!");
+        });
+      })
+      .catch((err) => console.error("Error starting SignalR connection:", err));
+
+    // Cleanup when component unmounts (optional)
+    return () => {
+      newConnection.stop();
+    };
+  }, [token, selectedConversation]);
+
+  // Fetch user's conversations
   const getConversationsMy = async () => {
     try {
       if (!token) {
@@ -47,14 +87,11 @@ const DashboardPage = () => {
         return;
       }
 
-      const response = await axios.get(
-        "http://localhost:5002/api/Conversations/my",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await axios.get("http://localhost:5002/api/Conversations/my", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (Array.isArray(response.data)) {
         setConversations(response.data);
@@ -69,40 +106,10 @@ const DashboardPage = () => {
   };
 
   useEffect(() => {
-    sendButtonRef.current.disabled = true;
-
-    connection.on("ReceiveMessage", (message) => {
-      setMessagesList((prevMessages) => [...prevMessages, message]);
-    },[message]);
-
-    connection.on("ReceiveNewConversation", (conversation) => {
-      setConversations((prevConversations) => [
-        conversation,
-        ...prevConversations,
-      ]);
-      toast.info(
-        `New conversation started with ${conversation.receiverUsername}`
-      );
-    });
-
-    connection
-      .start()
-      .then(() => {
-        setIsConnected(true);
-        sendButtonRef.current.disabled = false;
-      })
-      .catch((err) =>
-        console.error("SignalR connection error: ", err.toString())
-      );
-
     getConversationsMy();
+  }, [token]);
 
-    return () => {
-      connection.stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // Handle conversation selection
   const selectConversation = async (conversation) => {
     try {
       setSelectedConversation(conversation);
@@ -133,40 +140,43 @@ const DashboardPage = () => {
     }
   };
 
+  // Handle sending messages
   const sendMessage = async (event) => {
-  event.preventDefault();
+    event.preventDefault();
 
-  if (message.trim() && selectedConversation) {
-    const newMessage = {
-      senderId: userId,
-      content: message,
-      timestamp: new Date().toISOString(),
-      pending: true,
-    };
+    if (message.trim() && selectedConversation) {
+      const newMessage = {
+        senderId: userId,
+        content: message,
+        timestamp: new Date().toISOString(),
+      };
 
-    setMessagesList((prevMessages) => [...prevMessages, newMessage]);
-    setMessage(""); // Clear input field
+      setMessagesList((prevMessages) => [...prevMessages, newMessage]);
+      setMessage(""); // Clear input field
 
-    try {
-      // Send the message to the server
-      await axios.post(
-        "http://localhost:5002/api/messages/send",
-        {
-          conversationId: selectedConversation.conversationId,
-          content: message,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-    } catch (err) {
-      console.error("Error sending message:", err);
-      toast.error("Failed to send message. Please try again.");
+      try {
+        await axios.post(
+          `http://localhost:5002/api/messages/send`,
+          {
+            conversationId: selectedConversation.conversationId,
+            content: message,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      } catch (err) {
+        console.error("Error sending message:", err);
+        toast.error("Failed to send message. Please try again.");
+      }
+    } else {
+      toast.error("Please select a conversation or type a message.");
     }
-  } else {
-    toast.error("Please select a conversation or type a message.");
-  }
-};
+  };
 
-  
   const togglePopup = () => {
     setShowNewConvo((prevState) => !prevState);
   };
@@ -194,8 +204,7 @@ const DashboardPage = () => {
                 <div
                   key={index}
                   className={`conversationItem ${
-                    selectedConversation?.conversationId ===
-                    conversation.conversationId
+                    selectedConversation?.conversationId === conversation.conversationId
                       ? "activeConversation"
                       : ""
                   }`}
@@ -240,7 +249,7 @@ const DashboardPage = () => {
                     } fade-in`}
                   >
                     <span className="messageSender">
-                      {isUserMessage ? "You" : msg.senderUsername}
+                      {isUserMessage ? "You" : msg.senderUsername || "Them"}
                     </span>
                     <span className="messageContent">
                       {msg.content || "No content"}
@@ -261,10 +270,7 @@ const DashboardPage = () => {
               <button
                 id="sendButton"
                 ref={sendButtonRef}
-                onClick={(e) => {
-                  console.log("Send button clicked");
-                  sendMessage(e);
-                }}
+                onClick={sendMessage}
                 aria-label="Send Message"
               >
                 <BsSend size={18} />
